@@ -1,21 +1,31 @@
-import sys, getopt
-import gdata, atom
-from datetime import datetime
-from dateutil.parser import parse
-from gdata import service
-from django.conf import settings
-from django.template.defaultfilters import slugify
-from django.contrib.sites.models import Site
-from django.contrib.contenttypes.models import ContentType
+import optfunc
+
 from basic.blog.models import Post
+from dateutil.parser import parse
+from django.conf import settings
 from django.contrib.comments.models import Comment
+from django.contrib.contenttypes.models import ContentType
+from django.contrib.sites.models import Site
+from django.template.defaultfilters import slugify
+from gdata import service
+
+"""
+Required Dependencies:
+ - dateutils
+ - gdata
+ - django
+ - django basic apps (http://github.com/nathanborror/django-basic-apps)
+ - optfunc (http://github.com/simonw/optfunc)
+
+"""
+
 
 def import_entries(blogger_service, blog_id):
     query = service.Query()
     query.feed = '/feeds/' + blog_id + '/posts/default'
     query.max_results = 999
     feed = blogger_service.Get(query.ToUri())
-    
+
     for entry in feed.entry:
         site = Site.objects.get(id__exact=settings.SITE_ID)
         entry_id = entry.id.text.split('.post-')[-1]
@@ -23,7 +33,7 @@ def import_entries(blogger_service, blog_id):
         slug = slugify(title)
         body = entry.content.text
         publish = parse(entry.published.text)
-        
+
         query = service.Query()
         query.feed = '/feeds/' + blog_id + '/' + entry_id + '/comments/default'
         query.max_results = 999
@@ -40,7 +50,7 @@ def import_entries(blogger_service, blog_id):
             post.save()
             post.sites.add(site)
             print "Imported post: %s" % (post)
-        
+
         for comment in comment_feed.entry:
             if comment.author:
                 for author in comment.author:
@@ -65,37 +75,30 @@ def import_entries(blogger_service, blog_id):
                     user_email = user_email,
                     user_url = user_uri,
                     comment = comment,
-                    submit_date = submit_date,)
+                    submit_date = submit_date,
+                )
                 comment.save()
                 print "Imported comment: %s" % (comment)
-        
+
         # Hack to get around some bug that was breaking get_next_by_foo() for Post objects
         p = Post.objects.all()
         for post in p:
             post.save()
 
-if __name__ == '__main__':
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], 'ep', ['blog_id=','email=','password='])
-    except getopt.GetoptError, err:
-        print str(err)
-        usage()
-        sys.exit(2)
-    blog_id = None
-    email = None
-    password = None
-    for o, a in opts:
-        if o in ("--blog_id"):
-            blog_id = a
-        elif o in ("-e", "--email"):
-            email = a
-        elif o in ("-p", "--password"):
-            password = a
-        else:
-            assert False, "unhandled option"
+
+@optfunc.arghelp('blog_id', 'your Blogger id')
+@optfunc.arghelp('email', 'your email address')
+@optfunc.arghelp('password', 'your password')
+def blogger_importer(blog_id, email, password):
+    """Usage: %prog <blog_id> <email> <password>- Import Blogger entries into Django Basic Blog"""
+
     blogger_service = service.GDataService(email, password)
     blogger_service.service = 'blogger'
     blogger_service.account_type = 'GOOOGLE'
     blogger_service.server = 'www.blogger.com'
     blogger_service.ProgrammaticLogin()
     import_entries(blogger_service, blog_id)
+
+
+if __name__ == '__main__':
+    optfunc.main(blogger_importer)
