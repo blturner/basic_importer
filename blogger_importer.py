@@ -1,3 +1,4 @@
+import markdown
 import optfunc
 
 from basic.blog.models import Post
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.contrib.comments.models import Comment
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
-from django.template.defaultfilters import slugify
+from django.template.defaultfilters import slugify, striptags
 from gdata import service
 
 """
@@ -58,6 +59,8 @@ def import_entries(blogger_service, blog_id):
                     user_email = author.email.text
                     if author.uri:
                         user_uri = author.uri.text
+                    else:
+                        user_uri = ''
             if comment.updated:
                 submit_date = parse(comment.updated.text)
             else:
@@ -74,7 +77,7 @@ def import_entries(blogger_service, blog_id):
                     user_name = user_name,
                     user_email = user_email,
                     user_url = user_uri,
-                    comment = comment,
+                    comment = striptags(comment),
                     submit_date = submit_date,
                 )
                 comment.save()
