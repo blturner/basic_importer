@@ -30,7 +30,7 @@ def import_entries(blogger_service, blog_id):
         site = Site.objects.get(id__exact=settings.SITE_ID)
         entry_id = entry.id.text.split('.post-')[-1]
         title = entry.title.text
-        slug = slugify(title)
+        slug = slugify(title[0:50])
         body = entry.content.text
         publish = parse(entry.published.text)
 
